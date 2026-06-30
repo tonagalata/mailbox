@@ -1,0 +1,95 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("TURSO_DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  passwordHash  String?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  mailboxes     MailboxMember[]
+  sessions      Session[]
+  accounts      Account[]
+}
+
+// A Mailbox represents one physical address being scanned (e.g. "123 Main St").
+// Carrier scans are matched to a mailbox via the unique inboundAddress, e.g.
+// scans+a1b2c3@inbound.yourdomain.com -> forwarded from the mail carrier.
+model Mailbox {
+  id              String   @id @default(cuid())
+  label           String
+  physicalAddress String
+  inboundAddress  String   @unique
+  createdAt       DateTime @default(now())
+
+  members MailboxMember[]
+  pieces  MailPiece[]
+}
+
+model MailboxMember {
+  id        String  @id @default(cuid())
+  userId    String
+  mailboxId String
+  role      String  @default("owner") // owner | viewer
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mailboxId])
+}
+
+// Category is a free-form string ("LETTER" | "PACKAGE" | "MAGAZINE" | "BILL" |
+// "CATALOG" | "OTHER") rather than a Prisma enum, since SQLite/Turso has no
+// native enum type. Validate the value in application code (see lib/categories.ts).
+model MailPiece {
+  id           String   @id @default(cuid())
+  mailboxId    String
+  sender       String?
+  subjectGuess String?
+  category     String   @default("OTHER")
+  scanImageUrl String
+  thumbnailUrl String?
+  receivedAt   DateTime @default(now())
+  isRead       Boolean  @default(false)
+  isFlagged    Boolean  @default(false)
+  requestedAction String?
+
+  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

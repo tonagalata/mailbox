@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-paper text-ink antialiased;
+  }
+  ::selection {
+    @apply bg-stamp/20;
+  }
+}
+
+@layer utilities {
+  .bg-grain {
+    background-image: var(--noise-bg, none);
+  }
+}
