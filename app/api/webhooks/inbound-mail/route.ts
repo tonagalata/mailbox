@@ -54,17 +54,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const recipient = formData.get("recipient") as string | null;
+  const rawRecipient = formData.get("recipient") as string | null;
   const sender = formData.get("sender") as string | null;
   const subject = (formData.get("subject") as string | null) ?? "Scanned mail";
 
-  if (!recipient) {
+  if (!rawRecipient) {
     return NextResponse.json({ error: "missing recipient" }, { status: 400 });
   }
 
+  // Mailgun may send "Display Name <email@domain>" — extract just the address.
+  const match = rawRecipient.match(/<([^>]+)>/);
+  const recipient = (match ? match[1] : rawRecipient).trim().toLowerCase();
+
   const mailbox = await prisma.mailbox.findUnique({ where: { inboundAddress: recipient } });
   if (!mailbox) {
-    return NextResponse.json({ error: "no mailbox matches recipient" }, { status: 404 });
+    return NextResponse.json({ error: "no mailbox matches recipient", recipient }, { status: 404 });
   }
 
   const attachmentCount = parseInt((formData.get("attachment-count") as string | null) ?? "0", 10);

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import CreateMailboxForm from "@/components/create-mailbox-form";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
             </div>
           </div>
         ))}
+        <CreateMailboxForm />
       </div>
     </div>
   );
