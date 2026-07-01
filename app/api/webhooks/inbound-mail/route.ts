@@ -9,16 +9,11 @@ const WEBHOOK_SECRET = process.env.INBOUND_WEBHOOK_SECRET ?? "";
 // Setup:
 //   1. Create a Postmark account → Servers → your server → Settings → Inbound
 //   2. Set the webhook URL to:
-//        https://<your-domain>/api/webhooks/inbound-mail
-//   3. Under "Webhook credentials" set a username + password — use any values,
-//      then set INBOUND_WEBHOOK_SECRET="username:password" in your env.
-//   4. Point your inbound email address at the Postmark inbound server
-//      (use the provided @inbound.postmarkapp.com address, or add MX records).
-function verifyBasicAuth(req: NextRequest): boolean {
+//        https://<your-domain>/api/webhooks/inbound-mail?secret=<INBOUND_WEBHOOK_SECRET>
+//   3. Set INBOUND_WEBHOOK_SECRET to any random string in your env.
+function verifySecret(req: NextRequest): boolean {
   if (!WEBHOOK_SECRET) return false;
-  const auth = req.headers.get("authorization") ?? "";
-  if (!auth.startsWith("Basic ")) return false;
-  const provided = Buffer.from(auth.slice(6), "base64").toString();
+  const provided = req.nextUrl.searchParams.get("secret") ?? "";
   try {
     return timingSafeEqual(Buffer.from(provided), Buffer.from(WEBHOOK_SECRET));
   } catch {
@@ -27,7 +22,7 @@ function verifyBasicAuth(req: NextRequest): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  if (!verifyBasicAuth(req)) {
+  if (!verifySecret(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
