@@ -7,13 +7,12 @@ const WEBHOOK_SECRET = process.env.INBOUND_WEBHOOK_SECRET ?? "";
 
 // Postmark inbound webhook — JSON body.
 // Setup:
-//   1. Create a Postmark account → Servers → your server → Settings → Inbound
-//   2. Set the webhook URL to:
+//   1. Postmark → Server → Settings → Inbound → set webhook URL to:
 //        https://<your-domain>/api/webhooks/inbound-mail?secret=<INBOUND_WEBHOOK_SECRET>
-//   3. Set INBOUND_WEBHOOK_SECRET to any random string in your env.
+//   2. Set INBOUND_WEBHOOK_SECRET to any random string in your env.
 function verifySecret(req: NextRequest): boolean {
   if (!WEBHOOK_SECRET) return false;
-  const provided = req.nextUrl.searchParams.get("secret") ?? "";
+  const provided = new URL(req.url).searchParams.get("secret") ?? "";
   try {
     return timingSafeEqual(Buffer.from(provided), Buffer.from(WEBHOOK_SECRET));
   } catch {
@@ -50,12 +49,14 @@ export async function POST(req: NextRequest) {
 
   const mailbox = await prisma.mailbox.findUnique({ where: { inboundAddress: recipient } });
   if (!mailbox) {
-    return NextResponse.json({ error: "no mailbox matches recipient", recipient }, { status: 404 });
+    // Return 200 so Postmark doesn't retry — this address simply isn't configured.
+    return NextResponse.json({ ok: false, reason: "no mailbox matches recipient", recipient });
   }
 
   const imageAttachment = attachments.find((a) => a.ContentType?.startsWith("image/"));
   if (!imageAttachment) {
-    return NextResponse.json({ error: "no image attachment found" }, { status: 400 });
+    // Return 200 so Postmark doesn't retry — email had no image attachment (e.g. test ping).
+    return NextResponse.json({ ok: false, reason: "no image attachment" });
   }
 
   const scanImageUrl = `data:${imageAttachment.ContentType};base64,${imageAttachment.Content}`;
